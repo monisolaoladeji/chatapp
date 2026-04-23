@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>All Messages</title>
+    <style>
+        :root {
+            --wa-header: #075e54;
+            --wa-header-light: #128c7e;
+            --wa-bg: #e5ddd5;
+            --wa-out: #dcf8c6;
+            --wa-text: #111b21;
+            --wa-muted: #667781;
+            --wa-danger: #ea0038;
+            --wa-danger-hover: #c4002f;
+            --shadow: 0 1px 0.5px rgba(11, 20, 26, 0.13);
+            --radius-bubble: 7.5px;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--wa-bg);
+            background-image:
+                radial-gradient(circle at 10% 20%, rgba(255,255,255,0.12) 0%, transparent 45%),
+                radial-gradient(circle at 90% 80%, rgba(0,0,0,0.04) 0%, transparent 40%);
+            color: var(--wa-text);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .top-bar {
+            background: linear-gradient(135deg, var(--wa-header) 0%, var(--wa-header-light) 100%);
+            color: #fff;
+            padding: 12px 16px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .back-link {
+            color: #fff;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            transition: background 0.15s;
+        }
+
+        .back-link:hover {
+            background: rgba(255,255,255,0.15);
+        }
+
+        .top-bar-text h1 {
+            margin: 0;
+            font-size: 1.05rem;
+            font-weight: 600;
+        }
+
+        .top-bar-text p {
+            margin: 2px 0 0;
+            font-size: 0.75rem;
+            opacity: 0.88;
+        }
+
+        .chat-shell {
+            flex: 1;
+            max-width: 680px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 16px 12px 100px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        /* WhatsApp-style outgoing row: right-aligned */
+        .message-row {
+            display: flex;
+            justify-content: flex-end;
+            width: 100%;
+            padding: 2px 0;
+        }
+
+        .bubble-wrap {
+            max-width: 85%;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 6px;
+        }
+
+        .bubble {
+            background: var(--wa-out);
+            border-radius: var(--radius-bubble);
+            border-top-right-radius: 2px;
+            padding: 6px 9px 8px 10px;
+            box-shadow: var(--shadow);
+            border: 1px solid rgba(0,0,0,0.03);
+            position: relative;
+            min-width: 120px;
+        }
+
+        .bubble::after {
+            content: "";
+            position: absolute;
+            right: -6px;
+            bottom: 0;
+            width: 0;
+            height: 0;
+            border-style: solid;
+            border-width: 0 0 8px 8px;
+            border-color: transparent transparent var(--wa-out) transparent;
+            filter: drop-shadow(0.5px 0.5px 0 rgba(0,0,0,0.04));
+        }
+
+        .bubble-author {
+            display: block;
+            font-size: 0.72rem;
+            font-weight: 700;
+            color: var(--wa-header-light);
+            margin-bottom: 2px;
+            letter-spacing: 0.02em;
+        }
+
+        .bubble-text {
+            margin: 0;
+            font-size: 0.9125rem;
+            line-height: 1.45;
+            word-break: break-word;
+            white-space: pre-wrap;
+            color: var(--wa-text);
+        }
+
+        .bubble-image {
+            margin: 0 0 6px 0;
+            max-width: min(280px, 100%);
+            border-radius: 6px;
+            overflow: hidden;
+            line-height: 0;
+        }
+
+        .bubble-image img {
+            width: 100%;
+            height: auto;
+            display: block;
+            vertical-align: middle;
+        }
+
+        .bubble-footer {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 6px;
+            flex-wrap: wrap;
+        }
+
+        .bubble-time {
+            flex: 1;
+            min-width: 0;
+            text-align: right;
+            font-size: 0.65rem;
+            color: var(--wa-muted);
+            font-variant-numeric: tabular-nums;
+            line-height: 1.2;
+        }
+
+        .bubble-actions {
+            flex-shrink: 0;
+        }
+
+        a.delete-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            padding: 0;
+            border: none;
+            border-radius: 50%;
+            text-decoration: none;
+            cursor: pointer;
+            color: var(--wa-danger);
+            background: rgba(234, 0, 56, 0.08);
+            box-shadow: inset 0 0 0 1px rgba(234, 0, 56, 0.18);
+            transition:
+                background 0.2s ease,
+                color 0.2s ease,
+                box-shadow 0.2s ease,
+                transform 0.18s ease;
+        }
+
+        a.delete-btn svg {
+            display: block;
+            width: 15px;
+            height: 15px;
+            pointer-events: none;
+        }
+
+        a.delete-btn:hover {
+            background: var(--wa-danger);
+            color: #fff;
+            box-shadow:
+                0 3px 10px rgba(234, 0, 56, 0.38),
+                inset 0 0 0 1px transparent;
+            transform: scale(1.08);
+        }
+
+        a.delete-btn:active {
+            transform: scale(0.96);
+            box-shadow: 0 1px 4px rgba(234, 0, 56, 0.35);
+        }
+
+        a.delete-btn:focus-visible {
+            outline: 2px solid var(--wa-danger);
+            outline-offset: 2px;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 48px 24px;
+            color: var(--wa-muted);
+            font-size: 0.95rem;
+        }
+
+        .empty-state strong {
+            display: block;
+            color: var(--wa-text);
+            margin-bottom: 8px;
+            font-size: 1.05rem;
+        }
+
+        .bottom-actions {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 12px 16px 20px;
+            background: linear-gradient(to top, rgba(229, 221, 213, 0.98), rgba(229, 221, 213, 0.85));
+            border-top: 1px solid rgba(0,0,0,0.06);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+            max-width: 680px;
+            margin: 0 auto;
+        }
+
+        a.delete-all-btn {
+            background: var(--wa-danger);
+            color: #fff;
+            border: none;
+            padding: 10px 18px;
+            border-radius: 24px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(234, 0, 56, 0.25);
+            transition: background 0.15s, transform 0.1s;
+        }
+
+        a.delete-all-btn:hover {
+            background: var(--wa-danger-hover);
+            color: #fff;
+        }
+
+        a.delete-all-btn:active {
+            transform: scale(0.98);
+        }
+
+        a.back-btn {
+            display: inline-block;
+            padding: 10px 18px;
+            border-radius: 24px;
+            border: 1px solid rgba(7, 94, 84, 0.35);
+            background: #fff;
+            color: var(--wa-header);
+            font-size: 0.85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+            text-decoration: none;
+            font-family: inherit;
+        }
+
+        a.back-btn:hover {
+            background: #f0f2f5;
+        }
+
+    </style>
+</head>
+<body>
+
+<header class="top-bar">
+    <a class="back-link" href="/" title="Back" aria-label="Back to send form">←</a>
+    <div class="top-bar-text">
+        <h1>All messages</h1>
+        <p>Your conversation</p>
+    </div>
+</header>
+
+<div class="chat-shell" id="messages-shell">
+    {% if messages %}
+        {% for msg in messages %}
+            <div class="message-row">
+                <div class="bubble-wrap">
+                    <div class="bubble">
+                        {% if msg.name %}
+                            <span class="bubble-author">{{ msg.name }}</span>
+                        {% endif %}
+                        {% if msg.image_url %}
+                            <div class="bubble-image">
+                                <img src="{{ msg.image_url }}" alt="" loading="lazy" decoding="async">
+                            </div>
+                        {% endif %}
+                        {% if msg.body %}
+                            <p class="bubble-text">{{ msg.body }}</p>
+                        {% endif %}
+                        <div class="bubble-footer">
+                            {% if msg.time_display %}
+                                <span class="bubble-time">{{ msg.time_display }}</span>
+                            {% endif %}
+                            <span class="bubble-actions">
+                                <a href="/delete/{{ msg.line_index }}" class="delete-btn" title="Delete message" aria-label="Delete message">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M3 6h18"/>
+                                        <path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
+                                        <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/>
+                                        <path d="M10 11v6M14 11v6"/>
+                                    </svg>
+                                </a>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    {% else %}
+        <div class="empty-state">
+            <strong>No messages yet</strong>
+            Send something from the home page to see it here.
+        </div>
+    {% endif %}
+</div>
+
+<div id="bottom-actions-root">
+{% if messages %}
+<div class="bottom-actions">
+    <a href="/" class="back-btn">New message</a>
+    <a href="/delete_all" class="delete-all-btn">Delete all messages</a>
+</div>
+{% else %}
+<div class="bottom-actions">
+    <a href="/" class="back-btn">Back to form</a>
+</div>
+{% endif %}
+</div>
+
+<script>
+(function () {
+    var DELETE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/><path d="M10 11v6M14 11v6"/></svg>';
+
+    function escapeHtml(s) {
+        if (s == null) return "";
+        var d = document.createElement("div");
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+    function renderBottomActions(hasMessages) {
+        var root = document.getElementById("bottom-actions-root");
+        if (!root) return;
+        if (hasMessages) {
+            root.innerHTML =
+                '<div class="bottom-actions">' +
+                '<a href="/" class="back-btn">New message</a>' +
+                '<a href="/delete_all" class="delete-all-btn">Delete all messages</a>' +
+                "</div>";
+        } else {
+            root.innerHTML =
+                '<div class="bottom-actions">' +
+                '<a href="/" class="back-btn">Back to form</a>' +
+                "</div>";
+        }
+    }
+
+    function renderMessages(messages) {
+        var shell = document.getElementById("messages-shell");
+        if (!shell) return;
+
+        if (!messages || messages.length === 0) {
+            shell.innerHTML =
+                '<div class="empty-state">' +
+                "<strong>No messages yet</strong>" +
+                "Send something from the home page to see it here." +
+                "</div>";
+            renderBottomActions(false);
+            return;
+        }
+
+        var html = "";
+        for (var i = 0; i < messages.length; i++) {
+            var msg = messages[i];
+            var name = msg.name || "";
+            var body = msg.body || "";
+            var timeDisplay = msg.time_display || "";
+            var idx = msg.line_index;
+
+            html += '<div class="message-row"><div class="bubble-wrap"><div class="bubble">';
+            if (name) {
+                html += '<span class="bubble-author">' + escapeHtml(name) + "</span>";
+            }
+            if (msg.image_url) {
+                html +=
+                    '<div class="bubble-image"><img src="' +
+                    escapeHtml(msg.image_url) +
+                    '" alt="" loading="lazy" decoding="async"></div>';
+            }
+            if (body) {
+                html += '<p class="bubble-text">' + escapeHtml(body) + "</p>";
+            }
+            html += '<div class="bubble-footer">';
+            if (timeDisplay) {
+                html += '<span class="bubble-time">' + escapeHtml(timeDisplay) + "</span>";
+            }
+            html +=
+                '<span class="bubble-actions">' +
+                '<a href="/delete/' +
+                idx +
+                '" class="delete-btn" title="Delete message" aria-label="Delete message">' +
+                DELETE_SVG +
+                "</a></span></div></div></div></div>";
+        }
+        shell.innerHTML = html;
+        renderBottomActions(true);
+    }
+
+    function refreshMessages() {
+        fetch("/api/messages", { cache: "no-store" })
+            .then(function (r) {
+                if (!r.ok) throw new Error("Failed to load messages");
+                return r.json();
+            })
+            .then(renderMessages)
+            .catch(function (err) {
+                console.error(err);
+            });
+    }
+
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", function () {
+            setInterval(refreshMessages, 5000);
+        });
+    } else {
+        setInterval(refreshMessages, 5000);
+    }
+})();
+</script>
+
+</body>
+</html>

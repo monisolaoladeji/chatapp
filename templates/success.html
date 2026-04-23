@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Message sent</title>
+    <style>
+        :root {
+            --wa-header: #075e54;
+            --wa-header-light: #128c7e;
+            --wa-bg: #e5ddd5;
+            --wa-accent: #25d366;
+            --wa-text: #111b21;
+            --wa-muted: #667781;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--wa-bg);
+            background-image:
+                radial-gradient(circle at 50% 30%, rgba(37, 211, 102, 0.08) 0%, transparent 50%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 24px;
+            color: var(--wa-text);
+        }
+
+        .card {
+            width: 100%;
+            max-width: 400px;
+            background: #fff;
+            padding: 36px 28px;
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(11, 20, 26, 0.1);
+            text-align: center;
+            border: 1px solid rgba(0,0,0,0.06);
+        }
+
+        .icon-wrap {
+            width: 72px;
+            height: 72px;
+            margin: 0 auto 20px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(37, 211, 102, 0.2), rgba(18, 140, 126, 0.15));
+            display: grid;
+            place-items: center;
+            font-size: 2rem;
+        }
+
+        h1 {
+            margin: 0 0 10px;
+            font-size: 1.35rem;
+            font-weight: 600;
+            color: var(--wa-header);
+        }
+
+        p {
+            margin: 0 0 24px;
+            font-size: 0.95rem;
+            color: var(--wa-muted);
+            line-height: 1.5;
+        }
+
+        .actions {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        a.button {
+            display: block;
+            padding: 14px 20px;
+            background: var(--wa-accent);
+            color: #fff;
+            text-decoration: none;
+            border-radius: 24px;
+            font-weight: 600;
+            font-size: 0.95rem;
+            box-shadow: 0 4px 14px rgba(37, 211, 102, 0.35);
+            transition: background 0.15s, transform 0.1s;
+        }
+
+        a.button:hover {
+            background: #20bd5a;
+        }
+
+        a.button:active {
+            transform: scale(0.98);
+        }
+
+        a.link-secondary {
+            color: var(--wa-header-light);
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-decoration: none;
+        }
+
+        a.link-secondary:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <div class="icon-wrap" aria-hidden="true">✓</div>
+        <h1>Message saved</h1>
+        <p>Your message was added to the board.</p>
+        <div class="actions">
+            <a class="button" href="/">Send another message</a>
+            <a class="link-secondary" href="/all_messages">View all messages</a>
+        </div>
+    </div>
+</body>
+</html>
