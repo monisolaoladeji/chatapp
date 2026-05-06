@@ -211,7 +211,7 @@ h2{font-size:1.3rem;}
 <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
 
 <script>
-const socket = io();
+const socket = io('https://chatapp-imwr.onrender.com');
 const mediaPanel = document.getElementById("media-panel");
 const aiPanel = document.getElementById("ai-panel");
 
@@ -264,7 +264,7 @@ document.getElementById("image").value = "";
 
 /* LOAD */
 window.onload = function () {
-fetch("/api/messages")
+fetch("https://chatapp-imwr.onrender.com/api/messages")
 .then(res => res.json())
 .then(data => {
 
@@ -349,7 +349,7 @@ return;
 panel.style.display = "block";
 content.innerText = "Loading AI summary...";
 
-fetch("/ai_summary")
+fetch("https://chatapp-imwr.onrender.com/ai_summary")
 .then(res => res.json())
 .then(data => {
 content.innerHTML = data.summary.replace(/\n/g, "<br>");

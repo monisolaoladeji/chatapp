@@ -450,7 +450,7 @@
     }
 
     function refreshMessages() {
-        fetch("/api/messages", { cache: "no-store" })
+        fetch("https://chatapp-imwr.onrender.com/api/messages", { cache: "no-store" })
             .then(function (r) {
                 if (!r.ok) throw new Error("Failed to load messages");
                 return r.json();

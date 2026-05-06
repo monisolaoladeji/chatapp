@@ -1,60 +1,57 @@
 from flask import Flask, render_template, request, jsonify, send_from_directory, redirect, url_for
+from flask_cors import CORS
 from flask_socketio import SocketIO
+from dotenv import load_dotenv
+from pymongo import MongoClient, ASCENDING
+from bson.objectid import ObjectId
 
 import os
 import uuid
-import sqlite3
 import base64
 from datetime import datetime
 
 # ---------------- SETUP ----------------
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "chat.db")
 UPLOAD_DIR = os.path.join(BASE_DIR, "uploads")
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+load_dotenv()
+
+MONGO_URI = os.environ.get(
+    "MONGO_URI",
+    "mongodb+srv://monisola:<db_password>@cluster0.eaer1cp.mongodb.net/?appName=Cluster0"
+)
+MONGO_DB_NAME = os.environ.get("MONGO_DB_NAME", "chatapp_db")
+mongo_client = MongoClient(MONGO_URI)
+mongo_db = mongo_client[MONGO_DB_NAME]
+messages_collection = mongo_db["messages"]
+
 app = Flask(__name__)
+app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret-key-change-this-in-production")
 socketio = SocketIO(app, cors_allowed_origins="*")
+
+CORS(app)
 
 # ---------------- DATABASE ----------------
 def init_db():
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-
-    cur.execute("""
-    CREATE TABLE IF NOT EXISTS messages (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        ts TEXT,
-        username TEXT,
-        message TEXT,
-        image TEXT
-    )
-    """)
-
-    conn.commit()
-    conn.close()
+    messages_collection.create_index([("ts", ASCENDING)])
+    messages_collection.create_index([("username", ASCENDING)])
 
 init_db()
 
 # ---------------- LOAD MESSAGES ----------------
 def load_messages(with_index=False):
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-
-    cur.execute("SELECT id, ts, username, message, image FROM messages ORDER BY id ASC")
-    rows = cur.fetchall()
-
-    conn.close()
-
+    docs = list(messages_collection.find({}).sort("_id", 1))
     messages = []
-    for i, r in enumerate(rows):
+
+    for i, doc in enumerate(docs):
         msg = {
-            "ts": r[1],
-            "username": r[2],
-            "message": r[3],
-            "image": r[4],
-            "id": r[0]
+            "id": str(doc["_id"]),
+            "ts": doc.get("ts", ""),
+            "username": doc.get("username", ""),
+            "message": doc.get("message", ""),
+            "image": doc.get("image"),
         }
         if with_index:
             msg["line_index"] = i
@@ -109,20 +106,12 @@ def delete_message(line_index):
     msgs = load_messages()
     if 0 <= line_index < len(msgs):
         msg_id = msgs[line_index]["id"]
-        conn = sqlite3.connect(DB_PATH)
-        cur = conn.cursor()
-        cur.execute("DELETE FROM messages WHERE id = ?", (msg_id,))
-        conn.commit()
-        conn.close()
+        messages_collection.delete_one({"_id": ObjectId(msg_id)})
     return redirect(url_for("all_messages"))
 
 @app.route("/delete_all")
 def delete_all_messages():
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-    cur.execute("DELETE FROM messages")
-    conn.commit()
-    conn.close()
+    messages_collection.delete_many({})
     return redirect(url_for("all_messages"))
 
 # ---------------- SOCKET ----------------
@@ -151,16 +140,15 @@ def handle_message(data):
             f.write(base64.b64decode(encoded))
 
     # ---------------- SAVE DB ----------------
-    conn = sqlite3.connect(DB_PATH)
-    cur = conn.cursor()
-
-    cur.execute(
-        "INSERT INTO messages (ts, username, message, image) VALUES (?, ?, ?, ?)",
-        (ts, username, message, image_filename)
+    messages_collection.insert_one(
+        {
+            "ts": ts,
+            "username": username,
+            "message": message,
+            "image": image_filename,
+            "created_at": datetime.utcnow(),
+        }
     )
-
-    conn.commit()
-    conn.close()
 
     # ---------------- EMIT ----------------
     socketio.emit("receive_message", {
@@ -202,4 +190,4 @@ def ai_summary():
 
 # ---------------- RUN ----------------
 if __name__ == "__main__":
-    socketio.run(app, debug=True, host="0.0.0.0")
+    socketio.run(app, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
