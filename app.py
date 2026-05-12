@@ -1,5 +1,10 @@
-import eventlet
-eventlet.monkey_patch() # Must be at the very top
+import gevent.monkey
+gevent.monkey.patch_all()  # Replace the eventlet monkey patch with this
+
+from flask import Flask, render_template, request, jsonify # ... rest of imports
+from flask_socketio import SocketIO
+
+# ... other code ...
 
 from flask import Flask, render_template, request, jsonify, send_from_directory, redirect, url_for
 from flask_cors import CORS
@@ -13,7 +18,7 @@ from datetime import datetime
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-key")
 # FIX: Force eventlet and allow origins for Railway
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='gevent')
 CORS(app)
 
 # ---------------- DATABASE ----------------
