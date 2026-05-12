@@ -29,7 +29,7 @@ messages_collection = mongo_db["messages"]
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.getenv("SECRET_KEY", "dev-secret-key-change-this-in-production")
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='eventlet')
 
 CORS(app)
 
@@ -190,4 +190,6 @@ def ai_summary():
 
 # ---------------- RUN ----------------
 if __name__ == "__main__":
-    socketio.run(app, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+    import eventlet
+    eventlet.monkey_patch()
+    socketio.run(app, host='0.0.0.0', port=int(os.environ.get('PORT', 5000)), debug=False)

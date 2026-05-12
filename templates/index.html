@@ -211,7 +211,7 @@ h2{font-size:1.3rem;}
 <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
 
 <script>
-const socket = io('https://chatapp-imwr.onrender.com');
+const socket = io();
 const mediaPanel = document.getElementById("media-panel");
 const aiPanel = document.getElementById("ai-panel");
 
@@ -264,7 +264,7 @@ document.getElementById("image").value = "";
 
 /* LOAD */
 window.onload = function () {
-fetch("https://chatapp-imwr.onrender.com/api/messages")
+fetch("/api/messages")
 .then(res => res.json())
 .then(data => {
 
