@@ -69,93 +69,125 @@
     <div id="ai-panel"><h3>AI Summary</h3><div id="ai-content">Click AI to load summary...</div></div>
 </div>
 
+<!-- Replace your entire <script> section with this -->
 <script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
 <script>
-/* FIX 1: Force Websockets. This prevents the "slowness" on Render/Railway free tiers */
+/* FIX 1: Auto-detect URL. Empty io() is best for Railway/Render */
 const socket = io({
     transports: ['websocket'],
-    upgrade: false
+    upgrade: false,
+    reconnection: true
 });
 
 const mediaPanel = document.getElementById("media-panel");
 const aiPanel = document.getElementById("ai-panel");
 
-/* Close panels when clicking outside */
-document.addEventListener("click", function(e) {
-    if (mediaPanel.style.display === "block" && !mediaPanel.contains(e.target) && !e.target.closest('[onclick="toggleMedia()"]')) toggleMedia();
-    if (aiPanel.style.display === "block" && !aiPanel.contains(e.target) && !e.target.closest('[onclick="toggleAI()"]')) toggleAI();
-});
-
-/* SEND */
+/* SEND MESSAGE */
 document.getElementById("send-btn").onclick = function () {
-    const username = document.getElementById("name").value || "Anonymous";
-    const message = document.getElementById("message").value;
-    const imageFile = document.getElementById("image").files[0];
+    const username = document.getElementById("name").value.trim() || "Anonymous";
+    const message = document.getElementById("message").value.trim();
+    const imageInput = document.getElementById("image");
+    const imageFile = imageInput.files[0];
 
-    if (!message.trim() && !imageFile) return;
+    if (!message && !imageFile) return;
 
+    // FIX 2: Optimistic UI - Show the message immediately for the sender 
+    // so it doesn't feel "slow" even if the server is lagging.
+    const tempTime = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    
     if (imageFile) {
         const reader = new FileReader();
         reader.onload = function () {
-            socket.emit("send_message", { username, message, image: reader.result });
+            const payload = { username, message, image: reader.result, time: tempTime };
+            socket.emit("send_message", payload);
+            renderMessage(payload, true); // Show immediately
         };
         reader.readAsDataURL(imageFile);
     } else {
-        socket.emit("send_message", { username, message, image: null });
+        const payload = { username, message, image: null, time: tempTime };
+        socket.emit("send_message", payload);
+        renderMessage(payload, true); // Show immediately
     }
 
     document.getElementById("message").value = "";
-    document.getElementById("image").value = "";
+    imageInput.value = "";
 };
 
-/* LOAD INITIAL MESSAGES */
-window.onload = function () {
-    fetch("/api/messages")
-    .then(res => res.json())
-    .then(data => {
-        const box = document.getElementById("messages");
-        const media = document.getElementById("media-content");
-        box.innerHTML = "";
-        media.innerHTML = "";
-        data.forEach(msg => {
-            renderMessage(msg, false); // Use a helper function
-        });
-        box.scrollTop = box.scrollHeight;
-    }).catch(err => console.log("Server waking up..."));
-};
+/* FIX 3: Prevent duplicate messages when using Optimistic UI */
+const seenMessages = new Set();
 
-/* RECEIVE LIVE MESSAGES */
-socket.on("receive_message", function (data) {
-    renderMessage(data, true);
-});
-
-/* Helper to show messages */
 function renderMessage(data, scroll) {
     const box = document.getElementById("messages");
     const media = document.getElementById("media-content");
+    
+    // Create a unique ID for the message to prevent showing it twice
+    const msgId = `${data.username}-${data.message}-${data.time}`;
+    if (seenMessages.has(msgId) && !scroll) return; 
+    seenMessages.add(msgId);
+
     let div = document.createElement("div");
     div.className = "msg";
     
-    // Support both database format (name/body) and socket format (username/message)
-    const name = data.username || data.name;
-    const body = data.message || data.body;
-    const time = data.time || data.time_display;
-    const img = data.image_url || data.image;
+    const name = data.username || data.name || "Anonymous";
+    const body = data.message || data.body || "";
+    const time = data.time || data.time_display || "";
+    const img = data.image || data.image_url;
 
     div.innerHTML = `<b>${name}</b><br>${body}<br><span class="time">${time}</span>`;
+    
     if (img) {
         div.innerHTML += `<br><img src="${img}">`;
-        media.innerHTML += `<img src="${img}"><br>`;
+        // Only add to media panel if it's not already there
+        if (!media.innerHTML.includes(img.substring(0, 50))) {
+            media.innerHTML += `<img src="${img}"><br>`;
+        }
     }
+
     box.appendChild(div);
     if(scroll) box.scrollTop = box.scrollHeight;
 }
 
-/* SEARCH */
+/* LISTEN FOR OTHERS */
+socket.on("receive_message", function (data) {
+    // Only render if it's not our own message (we already rendered ours)
+    const myName = document.getElementById("name").value || "Anonymous";
+    if (data.username !== myName) {
+        renderMessage(data, true);
+    }
+});
+
+/* INITIAL LOAD */
+window.onload = function () {
+    fetch("/api/messages")
+    .then(res => res.json())
+    .then(data => {
+        document.getElementById("messages").innerHTML = "";
+        data.forEach(msg => renderMessage(msg, false));
+        const box = document.getElementById("messages");
+        box.scrollTop = box.scrollHeight;
+    }).catch(err => console.error("Waiting for server..."));
+};
+
+/* AI & SEARCH (Keeping your existing logic as it works fine) */
+function toggleAI(){
+    const panel = document.getElementById("ai-panel");
+    const content = document.getElementById("ai-content");
+    if(panel.style.display === "block") { panel.style.display = "none"; return; }
+    panel.style.display = "block";
+    content.innerText = "Loading AI summary...";
+    fetch("/ai_summary").then(res => res.json()).then(data => {
+        content.innerHTML = data.summary ? data.summary.replace(/\n/g, "<br>") : "No summary available";
+    }).catch(() => content.innerText = "AI is sleeping. Try again in a moment.");
+}
+
+function toggleMedia(){
+    const panel = document.getElementById("media-panel");
+    panel.style.display = (panel.style.display === "block") ? "none" : "block";
+}
+
 function searchMessages(){
     const query = document.getElementById("search-input").value.toLowerCase();
-    const msgs = document.querySelectorAll(".msg");
-    msgs.forEach(msg => {
+    document.querySelectorAll(".msg").forEach(msg => {
         msg.classList.remove("highlight");
         if(query && msg.innerText.toLowerCase().includes(query)){
             msg.scrollIntoView({behavior:"smooth", block:"center"});
@@ -163,34 +195,7 @@ function searchMessages(){
         }
     });
 }
-
-/* FIX 2: Use relative URL. Never hardcode the 'render.com' address inside the code */
-function toggleAI(){
-    const panel = document.getElementById("ai-panel");
-    const content = document.getElementById("ai-content");
-    if(panel.style.display === "block"){
-        panel.style.display = "none";
-        content.innerText = "Click AI to load summary...";
-        return;
-    }
-    panel.style.display = "block";
-    content.innerText = "Loading AI summary...";
-    
-    fetch("/ai_summary") // Fixed: Removed hardcoded URL
-    .then(res => res.json())
-    .then(data => {
-        content.innerHTML = data.summary ? data.summary.replace(/\n/g, "<br>") : "No summary available";
-    }).catch(() => content.innerText = "AI is currently unavailable.");
-}
-
-function toggleMedia(){
-    const panel = document.getElementById("media-panel");
-    if(panel.style.display === "block"){
-        panel.style.display = "none";
-        return;
-    }
-    panel.style.display = "block";
-}
 </script>
+
 </body>
 </html>
