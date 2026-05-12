@@ -1,7 +1,7 @@
 Flask
 flask-cors
-Flask-SocketIO
 gunicorn
+gevent
+flask-socketio
+pymongo
 python-dotenv
-pymongo[srv]
-dnspython
