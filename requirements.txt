@@ -1,7 +1,7 @@
 Flask
 flask-cors
-gunicorn==20.1.0
-gevent==24.0.0
+gunicorn
+gevent
 flask-socketio
 pymongo
 python-dotenv
