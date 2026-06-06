@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, session
 from flask_cors import CORS
 from pymongo import MongoClient
 from bson.objectid import ObjectId
@@ -14,6 +14,9 @@ MONGO_URI = os.environ.get("MONGO_URI", "mongodb+srv://monisola:portfolio2026@cl
 mongo_client = MongoClient(MONGO_URI)
 mongo_db = mongo_client["chatapp_db"]
 messages_collection = mongo_db["messages"]
+
+# ---------------- ADMIN ----------------
+ADMIN_PASSWORD = os.environ.get("ADMIN_PASSWORD", "admin123")  # Default for local, change in production
 
 # ---------------- HELPERS ----------------
 def get_all_messages():
@@ -33,11 +36,11 @@ def get_all_messages():
 # ---------------- ROUTES ----------------
 @app.route("/")
 def home():
-    return render_template("index.html")
+    return render_template("index.html", is_admin=session.get("is_admin", False))
 
 @app.route("/all_messages")
 def all_messages():
-    return render_template("all_messages.html")
+    return render_template("all_messages.html", is_admin=session.get("is_admin", False))
 
 @app.route("/api/messages", methods=["GET"])
 def api_messages():
@@ -71,6 +74,34 @@ def send_message():
         "image": image_data,
         "time_display": ts
     }), 201
+
+@app.route("/api/messages/<message_id>", methods=["DELETE"])
+def delete_message(message_id):
+    if not session.get("is_admin"):
+        return jsonify({"error": "Not authorized"}), 403
+    
+    try:
+        obj_id = ObjectId(message_id)
+        result = messages_collection.delete_one({"_id": obj_id})
+        if result.deleted_count == 0:
+            return jsonify({"error": "Message not found"}), 404
+        return jsonify({"success": True})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+
+@app.route("/api/admin/login", methods=["POST"])
+def admin_login():
+    data = request.get_json(silent=True) or {}
+    password = data.get("password", "")
+    if password == ADMIN_PASSWORD:
+        session["is_admin"] = True
+        return jsonify({"success": True})
+    return jsonify({"error": "Incorrect password"}), 401
+
+@app.route("/api/admin/logout", methods=["POST"])
+def admin_logout():
+    session.pop("is_admin", None)
+    return jsonify({"success": True})
 
 @app.route("/ai_summary")
 def ai_summary():
