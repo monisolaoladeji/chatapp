@@ -17,6 +17,7 @@
     input,textarea{width:100%;padding:12px;margin-top:10px;border:none;border-radius:8px;font-size:1rem;}
     textarea{height:80px;resize:none;}
     #send-btn{width:100%;padding:14px;margin-top:10px;background:#ffcc00;border:none;border-radius:8px;font-weight:bold;cursor:pointer;font-size:1rem;}
+    #send-btn:disabled{opacity:0.5;cursor:not-allowed;}
     #search-box{margin-top:15px;display:flex;gap:10px;}
     #search-input{flex:1;}
     button.small{padding:10px 14px;border:none;border-radius:8px;cursor:pointer;background:white;font-size:0.9rem;}
@@ -106,46 +107,67 @@ function loadMessages() {
         box.innerHTML = "";
         data.forEach(msg => renderMessage(msg, false));
         box.scrollTop = box.scrollHeight;
-    }).catch(err => console.error(err));
+    }).catch(err => console.error("Error loading messages:", err));
 }
 
-document.getElementById("send-btn").onclick = function () {
+async function sendMessage() {
+    const sendBtn = document.getElementById("send-btn");
+    sendBtn.disabled = true;
+    
     const username = document.getElementById("name").value.trim() || "Anonymous";
     const message = document.getElementById("message").value.trim();
     const imageInput = document.getElementById("image");
     const imageFile = imageInput.files[0];
 
-    if (!message && !imageFile) return;
+    if (!message && !imageFile) {
+        sendBtn.disabled = false;
+        return;
+    }
 
-    if (imageFile) {
-        const reader = new FileReader();
-        reader.onload = function () {
-            const payload = { username, message, image: reader.result };
-            fetch("/api/messages", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(payload)
-            }).then(res => res.json())
-            .then(newMsg => {
-                renderMessage(newMsg, true);
-                document.getElementById("message").value = "";
-                imageInput.value = "";
+    try {
+        let payload = { username, message, image: null };
+        
+        if (imageFile) {
+            const reader = new FileReader();
+            const imageData = await new Promise((resolve, reject) => {
+                reader.onload = (e) => resolve(e.target.result);
+                reader.onerror = reject;
+                reader.readAsDataURL(imageFile);
             });
-        };
-        reader.readAsDataURL(imageFile);
-    } else {
-        const payload = { username, message, image: null };
-        fetch("/api/messages", {
+            payload.image = imageData;
+        }
+        
+        const res = await fetch("/api/messages", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
-        }).then(res => res.json())
-        .then(newMsg => {
-            renderMessage(newMsg, true);
-            document.getElementById("message").value = "";
         });
+        
+        if (!res.ok) {
+            throw new Error("Failed to send message");
+        }
+        
+        const newMsg = await res.json();
+        renderMessage(newMsg, true);
+        document.getElementById("message").value = "";
+        imageInput.value = "";
+    } catch (error) {
+        console.error("Error sending message:", error);
+        alert("Failed to send message. Please try again.");
+    } finally {
+        sendBtn.disabled = false;
     }
-};
+}
+
+document.getElementById("send-btn").addEventListener("click", sendMessage);
+
+// Allow sending with Enter key
+document.getElementById("message").addEventListener("keypress", function(e) {
+    if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        sendMessage();
+    }
+});
 
 // Poll for new messages every 3 seconds
 setInterval(loadMessages, 3000);
