@@ -179,57 +179,6 @@
             line-height: 1.2;
         }
 
-        .bubble-actions {
-            flex-shrink: 0;
-        }
-
-        a.delete-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 30px;
-            height: 30px;
-            padding: 0;
-            border: none;
-            border-radius: 50%;
-            text-decoration: none;
-            cursor: pointer;
-            color: var(--wa-danger);
-            background: rgba(234, 0, 56, 0.08);
-            box-shadow: inset 0 0 0 1px rgba(234, 0, 56, 0.18);
-            transition:
-                background 0.2s ease,
-                color 0.2s ease,
-                box-shadow 0.2s ease,
-                transform 0.18s ease;
-        }
-
-        a.delete-btn svg {
-            display: block;
-            width: 15px;
-            height: 15px;
-            pointer-events: none;
-        }
-
-        a.delete-btn:hover {
-            background: var(--wa-danger);
-            color: #fff;
-            box-shadow:
-                0 3px 10px rgba(234, 0, 56, 0.38),
-                inset 0 0 0 1px transparent;
-            transform: scale(1.08);
-        }
-
-        a.delete-btn:active {
-            transform: scale(0.96);
-            box-shadow: 0 1px 4px rgba(234, 0, 56, 0.35);
-        }
-
-        a.delete-btn:focus-visible {
-            outline: 2px solid var(--wa-danger);
-            outline-offset: 2px;
-        }
-
         .empty-state {
             text-align: center;
             padding: 48px 24px;
@@ -258,28 +207,6 @@
             justify-content: center;
             max-width: 680px;
             margin: 0 auto;
-        }
-
-        a.delete-all-btn {
-            background: var(--wa-danger);
-            color: #fff;
-            border: none;
-            padding: 10px 18px;
-            border-radius: 24px;
-            font-size: 0.85rem;
-            font-weight: 600;
-            cursor: pointer;
-            box-shadow: 0 2px 8px rgba(234, 0, 56, 0.25);
-            transition: background 0.15s, transform 0.1s;
-        }
-
-        a.delete-all-btn:hover {
-            background: var(--wa-danger-hover);
-            color: #fff;
-        }
-
-        a.delete-all-btn:active {
-            transform: scale(0.98);
         }
 
         a.back-btn {
@@ -314,66 +241,19 @@
 </header>
 
 <div class="chat-shell" id="messages-shell">
-    {% if messages %}
-        {% for msg in messages %}
-            <div class="message-row">
-                <div class="bubble-wrap">
-                    <div class="bubble">
-                        {% if msg.name %}
-                            <span class="bubble-author">{{ msg.name }}</span>
-                        {% endif %}
-                        {% if msg.image_url %}
-                            <div class="bubble-image">
-                                <img src="{{ msg.image_url }}" alt="" loading="lazy" decoding="async">
-                            </div>
-                        {% endif %}
-                        {% if msg.body %}
-                            <p class="bubble-text">{{ msg.body }}</p>
-                        {% endif %}
-                        <div class="bubble-footer">
-                            {% if msg.time_display %}
-                                <span class="bubble-time">{{ msg.time_display }}</span>
-                            {% endif %}
-                            <span class="bubble-actions">
-                                <a href="/delete/{{ msg.line_index }}" class="delete-btn" title="Delete message" aria-label="Delete message">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                        <path d="M3 6h18"/>
-                                        <path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/>
-                                        <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/>
-                                        <path d="M10 11v6M14 11v6"/>
-                                    </svg>
-                                </a>
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        {% endfor %}
-    {% else %}
-        <div class="empty-state">
-            <strong>No messages yet</strong>
-            Send something from the home page to see it here.
-        </div>
-    {% endif %}
+    <div class="empty-state" id="loading-state">
+        Loading messages...
+    </div>
 </div>
 
 <div id="bottom-actions-root">
-{% if messages %}
-<div class="bottom-actions">
-    <a href="/" class="back-btn">New message</a>
-    <a href="/delete_all" class="delete-all-btn">Delete all messages</a>
-</div>
-{% else %}
 <div class="bottom-actions">
     <a href="/" class="back-btn">Back to form</a>
 </div>
-{% endif %}
 </div>
 
 <script>
 (function () {
-    var DELETE_SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/><path d="M10 11v6M14 11v6"/></svg>';
-
     function escapeHtml(s) {
         if (s == null) return "";
         var d = document.createElement("div");
@@ -388,7 +268,6 @@
             root.innerHTML =
                 '<div class="bottom-actions">' +
                 '<a href="/" class="back-btn">New message</a>' +
-                '<a href="/delete_all" class="delete-all-btn">Delete all messages</a>' +
                 "</div>";
         } else {
             root.innerHTML =
@@ -418,16 +297,16 @@
             var name = msg.name || "";
             var body = msg.body || "";
             var timeDisplay = msg.time_display || "";
-            var idx = msg.line_index;
+            var imageUrl = msg.image;
 
             html += '<div class="message-row"><div class="bubble-wrap"><div class="bubble">';
             if (name) {
                 html += '<span class="bubble-author">' + escapeHtml(name) + "</span>";
             }
-            if (msg.image_url) {
+            if (imageUrl) {
                 html +=
                     '<div class="bubble-image"><img src="' +
-                    escapeHtml(msg.image_url) +
+                    escapeHtml(imageUrl) +
                     '" alt="" loading="lazy" decoding="async"></div>';
             }
             if (body) {
@@ -437,20 +316,14 @@
             if (timeDisplay) {
                 html += '<span class="bubble-time">' + escapeHtml(timeDisplay) + "</span>";
             }
-            html +=
-                '<span class="bubble-actions">' +
-                '<a href="/delete/' +
-                idx +
-                '" class="delete-btn" title="Delete message" aria-label="Delete message">' +
-                DELETE_SVG +
-                "</a></span></div></div></div></div>";
+            html += "</div></div></div></div>";
         }
         shell.innerHTML = html;
         renderBottomActions(true);
     }
 
     function refreshMessages() {
-        fetch("https://chatapp-imwr.onrender.com/api/messages", { cache: "no-store" })
+        fetch("/api/messages", { cache: "no-store" })
             .then(function (r) {
                 if (!r.ok) throw new Error("Failed to load messages");
                 return r.json();
@@ -463,9 +336,11 @@
 
     if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", function () {
+            refreshMessages();
             setInterval(refreshMessages, 5000);
         });
     } else {
+        refreshMessages();
         setInterval(refreshMessages, 5000);
     }
 })();

@@ -1,7 +1,5 @@
 Flask
 flask-cors
 gunicorn
-gevent
-flask-socketio
 pymongo
 python-dotenv

@@ -68,15 +68,9 @@
     <div id="ai-panel"><h3>AI Summary</h3><div id="ai-content">Click AI to load summary...</div></div>
 </div>
 
-<script src="https://cdn.socket.io/4.0.1/socket.io.min.js"></script>
 <script>
-const socket = io({
-    transports: ['websocket'],
-    upgrade: false,
-    reconnection: true
-});
-
-const seenMessages = new Set();
+let allMessages = [];
+let mediaImages = new Set();
 
 function renderMessage(data, scroll) {
     const box = document.getElementById("messages");
@@ -85,11 +79,7 @@ function renderMessage(data, scroll) {
     const name = data.username || data.name || "Anonymous";
     const body = data.message || data.body || "";
     const time = data.time || data.time_display || "";
-    const img = data.image; // Now using direct base64 string
-
-    const msgId = `${name}-${body}-${time}`;
-    if (seenMessages.has(msgId) && !scroll) return; 
-    seenMessages.add(msgId);
+    const img = data.image;
 
     let div = document.createElement("div");
     div.className = "msg";
@@ -97,13 +87,26 @@ function renderMessage(data, scroll) {
     
     if (img) {
         div.innerHTML += `<br><img src="${img}">`;
-        if (!media.innerHTML.includes(img.substring(0, 50))) {
+        if (!mediaImages.has(img.substring(0, 50))) {
+            mediaImages.add(img.substring(0, 50));
             media.innerHTML += `<img src="${img}"><br>`;
         }
     }
 
     box.appendChild(div);
     if(scroll) box.scrollTop = box.scrollHeight;
+}
+
+function loadMessages() {
+    fetch("/api/messages")
+    .then(res => res.json())
+    .then(data => {
+        allMessages = data;
+        const box = document.getElementById("messages");
+        box.innerHTML = "";
+        data.forEach(msg => renderMessage(msg, false));
+        box.scrollTop = box.scrollHeight;
+    }).catch(err => console.error(err));
 }
 
 document.getElementById("send-btn").onclick = function () {
@@ -114,41 +117,41 @@ document.getElementById("send-btn").onclick = function () {
 
     if (!message && !imageFile) return;
 
-    const tempTime = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
-    
     if (imageFile) {
         const reader = new FileReader();
         reader.onload = function () {
-            const payload = { username, message, image: reader.result, time: tempTime };
-            socket.emit("send_message", payload);
-            renderMessage(payload, true);
+            const payload = { username, message, image: reader.result };
+            fetch("/api/messages", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            }).then(res => res.json())
+            .then(newMsg => {
+                renderMessage(newMsg, true);
+                document.getElementById("message").value = "";
+                imageInput.value = "";
+            });
         };
         reader.readAsDataURL(imageFile);
     } else {
-        const payload = { username, message, image: null, time: tempTime };
-        socket.emit("send_message", payload);
-        renderMessage(payload, true);
+        const payload = { username, message, image: null };
+        fetch("/api/messages", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        }).then(res => res.json())
+        .then(newMsg => {
+            renderMessage(newMsg, true);
+            document.getElementById("message").value = "";
+        });
     }
-
-    document.getElementById("message").value = "";
-    imageInput.value = "";
 };
 
-socket.on("receive_message", function (data) {
-    const myName = document.getElementById("name").value || "Anonymous";
-    if (data.username !== myName) {
-        renderMessage(data, true);
-    }
-});
+// Poll for new messages every 3 seconds
+setInterval(loadMessages, 3000);
 
 window.onload = function () {
-    fetch("/api/messages")
-    .then(res => res.json())
-    .then(data => {
-        document.getElementById("messages").innerHTML = "";
-        data.forEach(msg => renderMessage(msg, false));
-        document.getElementById("messages").scrollTop = document.getElementById("messages").scrollHeight;
-    }).catch(err => console.error("Waking up..."));
+    loadMessages();
 };
 
 function toggleAI(){

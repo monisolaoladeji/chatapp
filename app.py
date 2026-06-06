@@ -1,24 +1,12 @@
-import gevent.monkey
-gevent.monkey.patch_all()  # Replace the eventlet monkey patch with this
-
-from flask import Flask, render_template, request, jsonify # ... rest of imports
-from flask_socketio import SocketIO
-
-# ... other code ...
-
-from flask import Flask, render_template, request, jsonify, send_from_directory, redirect, url_for
-from flask_cors import CORS
-from flask_socketio import SocketIO, emit
-from pymongo import MongoClient, ASCENDING
-from bson.objectid import ObjectId
 import os
-import uuid
 from datetime import datetime
+from flask import Flask, render_template, request, jsonify
+from flask_cors import CORS
+from pymongo import MongoClient
+from bson.objectid import ObjectId
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "dev-key")
-# FIX: Force eventlet and allow origins for Railway
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='gevent')
 CORS(app)
 
 # ---------------- DATABASE ----------------
@@ -36,7 +24,7 @@ def get_all_messages():
             "id": str(doc["_id"]),
             "name": doc.get("username", "Anonymous"),
             "body": doc.get("message", ""),
-            "image": doc.get("image_data"), # We now store the string directly
+            "image": doc.get("image_data"),
             "time_display": doc.get("ts", ""),
             "line_index": i
         })
@@ -47,39 +35,42 @@ def get_all_messages():
 def home():
     return render_template("index.html")
 
-@app.route("/api/messages")
+@app.route("/all_messages")
+def all_messages():
+    return render_template("all_messages.html")
+
+@app.route("/api/messages", methods=["GET"])
 def api_messages():
     return jsonify(get_all_messages())
 
-# ---------------- SOCKET ----------------
-@socketio.on("send_message")
-def handle_message(data):
+@app.route("/api/messages", methods=["POST"])
+def send_message():
+    data = request.get_json(silent=True) or {}
     username = data.get("username", "Anonymous")
     message = data.get("message", "")
-    image_data = data.get("image") # This is the base64 string from frontend
+    image_data = data.get("image")
 
     if not message.strip() and not image_data:
-        return
+        return jsonify({"error": "Message or image required"}), 400
 
     ts = datetime.now().strftime("%I:%M %p")
 
-    # SAVE TO DB (Stays forever even if Railway restarts)
     new_msg = {
         "ts": ts,
         "username": username,
         "message": message,
-        "image_data": image_data, 
+        "image_data": image_data,
         "created_at": datetime.utcnow(),
     }
     result = messages_collection.insert_one(new_msg)
 
-    # EMIT TO EVERYONE
-    socketio.emit("receive_message", {
-        "username": username,
-        "message": message,
+    return jsonify({
+        "id": str(result.inserted_id),
+        "name": username,
+        "body": message,
         "image": image_data,
-        "time": ts
-    })
+        "time_display": ts
+    }), 201
 
 @app.route("/ai_summary")
 def ai_summary():
@@ -92,4 +83,4 @@ def ai_summary():
 
 if __name__ == "__main__":
     port = int(os.environ.get('PORT', 5000))
-    socketio.run(app, host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port)
